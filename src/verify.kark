@@ -1,0 +1,11 @@
+// Integration verification for the Karkain-Actor public API.
+import actors
+
+func main() {
+    let a = post(post(new_actor("worker"), "job-1"), "job-2")
+    assert_eq(mailbox_size(a), 2)
+    println(describe_actor(a))
+    let next = consume(a)
+    assert_eq(peek_message(next), "job-2")
+    assert_eq(mailbox_size(next), 1)
+}

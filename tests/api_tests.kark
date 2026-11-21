@@ -1,0 +1,44 @@
+// Native tests for Karkain-Actor.
+
+func sample_actor() {
+    let a = post(new_actor("worker"), "m1")
+    return post(a, "m2")
+}
+
+func test_new_actor() {
+    let a = new_actor("worker")
+    assert_eq(actor_name(a), "worker")
+    assert_eq(mailbox_size(a), 0)
+}
+
+func test_send() {
+    let a = sample_actor()
+    assert_eq(mailbox_size(a), 2)
+    assert_eq(peek_message(a), "m1")
+}
+
+func test_peek_empty() {
+    assert_eq(peek_message(new_actor("w")), "")
+}
+
+func test_consume() {
+    let a = consume(sample_actor())
+    assert_eq(mailbox_size(a), 1)
+    assert_eq(peek_message(a), "m2")
+    assert_eq(mailbox_size(sample_actor()), 2)
+}
+
+func test_consume_empty() {
+    let a = new_actor("w")
+    assert_eq(mailbox_size(consume(a)), 0)
+}
+
+func test_clear_mailbox() {
+    let a = clear_mailbox(sample_actor())
+    assert_eq(mailbox_size(a), 0)
+    assert_eq(actor_name(a), "worker")
+}
+
+func test_describe_actor() {
+    assert_eq(describe_actor(sample_actor()), "worker:mailbox=2")
+}

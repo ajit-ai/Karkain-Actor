@@ -1,0 +1,12 @@
+// Karkain-Actor runnable example: a worker a mailbox.
+import actors
+
+func main() {
+    let w = new_actor("worker")
+    w = post(w, "alpha")
+    w = post(w, "beta")
+    println(describe_actor(w))
+    println("next=" + peek_message(w))
+    w = consume(w)
+    println(describe_actor(w))
+}

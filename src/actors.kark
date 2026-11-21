@@ -1,0 +1,64 @@
+// Karkain-Actor - a-model mailbox primitives.
+// Karkain Language v1.2.0 verified baseline (tag v1.2.0,
+// commit 77d70693e1e3134dac312a303bffafa7d50fa988).
+//
+// Scope boundary: this framework models an a's mailbox and message
+// ordering in portable Karkain. It does not spawn threads or schedule
+// actors; hosts drive delivery explicitly.
+//
+// Actor representation: [name, message, message, ...].
+
+// new_actor creates an a with an empty mailbox.
+public func new_actor(name) {
+    let a = []
+    a = push(a, name)
+    return a
+}
+
+// actor_name returns the a name.
+public func actor_name(a) {
+    return a[0]
+}
+
+// post appends a message to the a's mailbox.
+public func post(a, message) {
+    return push(a, message)
+}
+
+// mailbox_size returns the number of queued messages.
+public func mailbox_size(a) {
+    return len(a) - 1
+}
+
+// peek_message returns the oldest message without removing it.
+public func peek_message(a) {
+    if mailbox_size(a) == 0 {
+        return ""
+    }
+    return a[1]
+}
+
+// consume removes the oldest message and returns the updated a.
+public func consume(a) {
+    if mailbox_size(a) == 0 {
+        return a
+    }
+    let out = []
+    out = push(out, a[0])
+    let i = 2
+    while (i < len(a)) {
+        out = push(out, a[i])
+        i = i + 1
+    }
+    return out
+}
+
+// clear_mailbox removes all messages.
+public func clear_mailbox(a) {
+    return new_actor(a[0])
+}
+
+// describe_actor builds a one-line a diagnostic.
+public func describe_actor(a) {
+    return actor_name(a) + ":mailbox=" + str(mailbox_size(a))
+}
