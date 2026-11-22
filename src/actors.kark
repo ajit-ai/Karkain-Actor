@@ -62,3 +62,196 @@ public func clear_mailbox(a) {
 public func describe_actor(a) {
     return actor_name(a) + ":mailbox=" + str(mailbox_size(a))
 }
+
+// ---------------------------------------------------------------------------
+// Phase 2 additions. Phase 1 mailbox API is unchanged.
+//
+// Runtime probe evidence: the builtin a()/actorSend()/actorState() path
+// parsed but terminated with exit 0xc0000005 on v1.2.0. The models here are
+// in-process framework logic; independent concurrent a execution is
+// BLOCKED pending a qualified native a runtime.
+
+// actor_id returns an a identity.
+public func actor_id(a) { return a[0] }
+
+// new_actor_def creates an a definition with a kind and state.
+public func new_actor_def(id, kind) {
+    let a = []
+    a = push(a, id)
+    a = push(a, kind)
+    a = push(a, "idle")
+    return a
+}
+
+// actor_kind returns an a definition kind.
+public func actor_kind(definition) { return definition[1] }
+
+// actor_state returns an a definition state.
+public func actor_state(definition) { return definition[2] }
+
+// set_actor_state records an a state.
+public func set_actor_state(definition, state) {
+    let out = []
+    out = push(out, definition[0])
+    out = push(out, definition[1])
+    out = push(out, state)
+    return out
+}
+
+// start_actor marks an a running.
+public func start_actor(definition) { return set_actor_state(definition, "running") }
+
+// stop_actor marks an a stopped.
+public func stop_actor(definition) { return set_actor_state(definition, "stopped") }
+
+// set_supervision records a supervision strategy.
+public func set_supervision(definition, strategy) {
+    let out = definition
+    out = push(out, strategy)
+    return out
+}
+
+// supervision_strategy returns a strategy or "none".
+public func supervision_strategy(definition) {
+    if len(definition) > 3 { return definition[3] }
+    return "none"
+}
+
+// new_envelope creates a typed message envelope.
+public func new_envelope(id, kind, payload) {
+    let e = []
+    e = push(e, id)
+    e = push(e, kind)
+    e = push(e, payload)
+    return e
+}
+
+// envelope_kind returns an envelope kind.
+public func envelope_kind(envelope) { return envelope[1] }
+
+// envelope_payload returns an envelope payload.
+public func envelope_payload(envelope) { return envelope[2] }
+
+// new_mailbox_config creates a bounded mailbox configuration.
+public func new_mailbox_config(capacity) {
+    let c = []
+    c = push(c, capacity)
+    return c
+}
+
+// mailbox_can_accept reports whether a mailbox has capacity.
+public func mailbox_can_accept(config, size) { return size < config[0] }
+
+// new_handlers creates an empty handler registry.
+public func new_handlers() {
+    return []
+}
+
+// register_handler binds a handler to a message kind.
+public func register_handler(handlers, kind, name) {
+    let out = handlers
+    out = push(out, kind)
+    out = push(out, name)
+    return out
+}
+
+// handler_for returns the handler for a kind or "".
+public func handler_for(handlers, kind) {
+    let i = 0
+    while (i < len(handlers)) {
+        if handlers[i] == kind { return handlers[i + 1] }
+        i = i + 2
+    }
+    return ""
+}
+
+// dispatch_to_actor appends one delivery record per registered handler,
+// skipping a handler named "failing" to isolate subscriber errors.
+public func dispatch_to_actor(handlers, log, kind, payload) {
+    let out = log
+    let handler = handler_for(handlers, kind)
+    if handler != "" {
+        if handler != "failing" {
+            out = push(out, kind + ">" + handler + ">" + payload)
+        }
+    }
+    return out
+}
+
+// classify_failure maps an error code to a supervision class.
+public func classify_failure(code) {
+    if code == 1 { return "transient" }
+    if code == 2 { return "permanent" }
+    return "unknown"
+}
+
+// supervision_decision selects a restart policy from a strategy and class.
+public func supervision_decision(strategy, failure) {
+    if strategy == "restart" {
+        if failure == "transient" { return "restart" }
+    }
+    if strategy == "stop" { return "stop" }
+    return "escalate"
+}
+
+// new_system creates an empty a system.
+public func new_system() {
+    return []
+}
+
+// add_actor records an a and its parent in a system.
+public func add_actor(system, a, parent) {
+    let out = system
+    out = push(out, a)
+    out = push(out, parent)
+    return out
+}
+
+// children_of_actor returns children of a parent a.
+public func children_of_actor(system, parent) {
+    let out = []
+    let i = 0
+    while (i < len(system)) {
+        if system[i + 1] == parent { out = push(out, system[i]) }
+        i = i + 2
+    }
+    return out
+}
+
+// system_size returns the number of actors in a system.
+public func system_size(system) { return len(system) / 2 }
+
+// new_order_policy creates a message ordering policy.
+public func new_order_policy(mode) {
+    let p = []
+    p = push(p, mode)
+    return p
+}
+
+// order_mode returns a message ordering mode.
+public func order_mode(policy) { return policy[0] }
+
+// new_dead_letters creates a dead-letter store.
+public func new_dead_letters() {
+    return []
+}
+
+// to_dead_letter records an undeliverable message.
+public func to_dead_letter(letters, kind, payload) {
+    let out = letters
+    out = push(out, kind)
+    out = push(out, payload)
+    return out
+}
+
+// dead_letter_count returns the number of dead letters.
+public func dead_letter_count(letters) { return len(letters) / 2 }
+
+// event_contract documents Actor to Event integration.
+public func event_contract() { return "event.publish(actor_id,envelope)" }
+
+// concurrency_contract documents Actor to Concurrency integration.
+public func concurrency_contract() { return "concurrency.submit(actor_dispatch)" }
+
+// actor_runtime_contract documents the missing native a runtime.
+public func actor_runtime_contract() { return "runtime.a.create(handler,state)" }

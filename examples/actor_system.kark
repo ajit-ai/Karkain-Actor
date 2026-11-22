@@ -1,0 +1,17 @@
+// Karkain-Actor Phase 2 example: in-process a models and supervision.
+import actors
+
+func main() {
+    let def = set_supervision(start_actor(new_actor_def("worker", "job")), "restart")
+    println("state=" + actor_state(def))
+    println("strategy=" + supervision_strategy(def))
+
+    let handlers = register_handler(new_handlers(), "job", "run")
+    let envelope = new_envelope(1, "job", "payload")
+    let log = dispatch_to_actor(handlers, [], envelope_kind(envelope), envelope_payload(envelope))
+    println("delivered=" + str(len(log)))
+    println("decision=" + supervision_decision("restart", classify_failure(1)))
+
+    let system = add_actor(new_system(), "worker", "root")
+    println("system=" + str(system_size(system)))
+}

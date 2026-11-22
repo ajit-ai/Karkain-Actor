@@ -34,7 +34,7 @@ try {
     $out = Invoke-Karkain @('test', $combined); $code = $LASTEXITCODE
     Write-Output "TEST native: exit=$code"; Write-Output $out
     if ($code -ne 0) { throw 'native tests failed' }
-    if ($out -notlike '*7 tests, 7 passed, 0 failed*') { throw 'native test summary mismatch' }
+    if ($out -notlike '*17 tests, 17 passed, 0 failed*') { throw 'native test summary mismatch' }
 
     $verify = Join-Path $repo 'src\verify.kark'
     $out = Invoke-Karkain @('run', $verify); $code = $LASTEXITCODE
@@ -54,6 +54,16 @@ try {
     $out = Invoke-Karkain @('run', (Join-Path $exDir 'worker_mailbox.kark')); $code = $LASTEXITCODE
     Write-Output "RUN example: exit=$code"; Write-Output $out
     if ($code -ne 0) { throw 'example failed' }    if ($out -notlike '*next=alpha*') { throw 'example check missing' }
+    $advDir = Join-Path $tmp 'advanced'
+    New-Item -ItemType Directory -Path $advDir | Out-Null
+    Copy-Item -LiteralPath $module -Destination (Join-Path $advDir 'actors.kark')
+    Copy-Item -LiteralPath (Join-Path $repo 'examples\actor_system.kark') -Destination (Join-Path $advDir 'actor_system.kark')
+    $out = Invoke-Karkain @('run', (Join-Path $advDir 'actor_system.kark')); $code = $LASTEXITCODE
+    Write-Output "RUN advanced example: exit=$code"; Write-Output $out
+    if ($code -ne 0) { throw 'advanced example failed' }
+    if ($out -notlike '*delivered=1*') { throw 'advanced dispatch output missing' }
+    if ($out -notlike '*decision=restart*') { throw 'advanced supervision output missing' }
+
     Write-Output 'VERIFY: ALL GATES PASSED'
 }
 finally {

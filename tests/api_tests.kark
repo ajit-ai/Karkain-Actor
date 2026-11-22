@@ -42,3 +42,84 @@ func test_clear_mailbox() {
 func test_describe_actor() {
     assert_eq(describe_actor(sample_actor()), "worker:mailbox=2")
 }
+
+// --- Phase 2 regression ---
+
+func test_phase1_regression() {
+    let a = post(post(new_actor("w"), "m1"), "m2")
+    assert_eq(mailbox_size(a), 2)
+    assert_eq(peek_message(a), "m1")
+    assert_eq(mailbox_size(consume(a)), 1)
+    assert_eq(mailbox_size(clear_mailbox(a)), 0)
+}
+
+// --- Phase 2 additions ---
+
+func test_actor_definitions() {
+    let d = set_supervision(start_actor(new_actor_def("a1", "worker")), "restart")
+    assert_eq(actor_id(d), "a1")
+    assert_eq(actor_kind(d), "worker")
+    assert_eq(actor_state(d), "running")
+    assert_eq(supervision_strategy(d), "restart")
+    assert_eq(actor_state(stop_actor(d)), "stopped")
+    assert_eq(supervision_strategy(new_actor_def("x", "y")), "none")
+}
+
+func test_envelopes() {
+    let e = new_envelope(1, "command", "payload")
+    assert_eq(envelope_kind(e), "command")
+    assert_eq(envelope_payload(e), "payload")
+    assert_eq(e[0], 1)
+}
+
+func test_mailbox_capacity() {
+    let c = new_mailbox_config(3)
+    assert(mailbox_can_accept(c, 2))
+    assert(mailbox_can_accept(c, 3) == false)
+}
+
+func test_handler_dispatch() {
+    let h = register_handler(register_handler(new_handlers(), "cmd", "h1"), "event", "h2")
+    assert_eq(handler_for(h, "cmd"), "h1")
+    assert_eq(handler_for(h, "none"), "")
+    let log = dispatch_to_actor(h, [], "cmd", "x")
+    assert_eq(len(log), 1)
+    assert_eq(log[0], "cmd>h1>x")
+}
+
+func test_handler_error_isolation() {
+    let h = register_handler(new_handlers(), "cmd", "failing")
+    let log = dispatch_to_actor(h, [], "cmd", "x")
+    assert_eq(len(log), 0)
+}
+
+func test_supervision() {
+    assert_eq(classify_failure(1), "transient")
+    assert_eq(classify_failure(2), "permanent")
+    assert_eq(classify_failure(9), "unknown")
+    assert_eq(supervision_decision("restart", "transient"), "restart")
+    assert_eq(supervision_decision("restart", "permanent"), "escalate")
+    assert_eq(supervision_decision("stop", "transient"), "stop")
+}
+
+func test_actor_hierarchy() {
+    let s = add_actor(add_actor(new_system(), "child1", "root"), "child2", "root")
+    assert_eq(system_size(s), 2)
+    let children = children_of_actor(s, "root")
+    assert_eq(len(children), 2)
+    assert_eq(children[0], "child1")
+    assert_eq(len(children_of_actor(s, "none")), 0)
+}
+
+func test_ordering_and_dead_letters() {
+    assert_eq(order_mode(new_order_policy("FIFO")), "FIFO")
+    let d = to_dead_letter(to_dead_letter(new_dead_letters(), "cmd", "a"), "event", "b")
+    assert_eq(dead_letter_count(d), 2)
+    assert_eq(d[1], "a")
+}
+
+func test_integration_contracts() {
+    assert_eq(event_contract(), "event.publish(actor_id,envelope)")
+    assert_eq(concurrency_contract(), "concurrency.submit(actor_dispatch)")
+    assert_eq(actor_runtime_contract(), "runtime.a.create(handler,state)")
+}
